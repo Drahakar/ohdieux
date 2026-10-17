@@ -1,7 +1,6 @@
 FROM eclipse-temurin:21-jdk-alpine as build
 
-RUN apk update
-RUN apk add curl bash
+RUN apk add --no-cache curl bash 
 RUN curl -fL https://github.com/coursier/coursier/releases/download/v2.1.24/coursier > /usr/local/bin/cs
 RUN chmod +x /usr/local/bin/cs
 RUN cs install --dir /usr/local/bin scalac:3.5.1 sbt:1.10.2
@@ -18,7 +17,7 @@ RUN sbt dist
 
 FROM eclipse-temurin:21-jre-alpine
 
-RUN apk add bash ffmpeg
+RUN apk add --no-cache bash ffmpeg
 WORKDIR /app
 COPY --from=build /app/target/universal/*.zip .
 RUN unzip *.zip -d ohdieux/
@@ -27,6 +26,7 @@ RUN mkdir -p /tmp/ohdieux /data
 RUN chown 2000:2000 /tmp/ohdieux /data
 
 USER 2000:2000
+EXPOSE 9000
 WORKDIR /data
 
 CMD [ "/app/ohdieux/bin/ohdieux", \

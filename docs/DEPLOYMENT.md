@@ -14,10 +14,10 @@ docker build . -t ohdieux:latest
 docker run --restart always \
   -p 8080:8080 \
   -e PORT=8080 \
-  -e PUBLIC_URL="http://<my-accessible-ip>:8080" \
+  -e PUBLIC_URL="https://ohdieux.taila21b4e.ts.net" \
   -v ./data:/data \
   --name ohdieux \
-  ohdieux:latest
+  192.168.1.20:5000/ohdieux
 ```
 2. Head over to `http://localhost:8080/admin` to start adding programmes.
 
@@ -29,13 +29,13 @@ This deployment will save the audio files for every episode.
 docker run --restart always \
   -p 8080:8080 \
   -e PORT=8080 \
-  -e PUBLIC_URL="http://<my-accessible-ip>:8080" \
+  -e PUBLIC_URL="https://ohdieux.taila21b4e.ts.net" \
   -e ARCHIVE_MEDIA=true \
   -e MANIFEST_SERVE_IMAGES=true \
   -e MANIFEST_SERVE_MEDIA=true \
   -v ./data:/data \
   --name ohdieux \
-  ohdieux:latest
+  192.168.1.20:5000/ohdieux
 ```
 
 ## Production Considerations
@@ -58,6 +58,105 @@ docker run --restart always \
 * By default, Ohdieux uses an SQLite database. Consider using another
   JDBC driver or a caching load balancer if serving a large number of
   requests.
+
+
+## nginx in Docker Behind Tailscale Funnel
+This guide assumes the following deployment model:
+
+1. Tailscale Funnel handles the public HTTPS endpoint.
+2. nginx runs in Docker using the stock `nginx:alpine` image.
+3. The nginx config file lives on the host and is mounted into the nginx container.
+4. Ohdieux is published on host port `8080`.
+5. nginx proxies to that host port and blocks unauthenticated access to `/admin` for Funnel traffic.
+
+Because Funnel terminates HTTPS, nginx does not need to listen on `443`
+or manage certificates. Keep `PUBLIC_URL` set to the external Funnel
+URL, for example `https://example-node.ts.net`.
+
+This setup does not use a custom Docker network.
+
+Save the following nginx config on the host, for example as
+`./nginx/funnel.conf`:
+
+```nginx
+upstream ohdieux_backend {
+  server host.docker.internal:8080;
+  keepalive 16;
+}
+
+server {
+  listen 8081;
+  server_name _;
+
+  proxy_read_timeout 300s;
+  proxy_send_timeout 300s;
+
+  location = /admin {
+    return 403;
+  }
+
+  location ^~ /admin/ {
+    return 403;
+  }
+
+  location / {
+    proxy_pass http://ohdieux_backend;
+    proxy_http_version 1.1;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+
+    proxy_redirect off;
+  }
+}
+```
+
+On Linux, the nginx container needs an explicit host mapping for
+`host.docker.internal`. Keep the `--add-host
+host.docker.internal:host-gateway` line in the nginx command below. On
+Docker Desktop, `host.docker.internal` already resolves automatically,
+so that line can be removed.
+
+Run Ohdieux with port `8080` published on the host, then run nginx with
+the host config mounted into the stock image:
+
+```bash
+docker run --restart always \
+  --name ohdieux \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  -e PUBLIC_URL="https://ohdieux.taila21b4e.ts.net" \
+  -v ./data:/data \
+  ohdieux:latest
+
+docker run --restart always \
+  --name ohdieux-nginx \
+  -p 127.0.0.1:8081:8081 \
+  --add-host host.docker.internal:host-gateway \
+  --mount type=bind,src=/root/nginx.conf,target=/etc/nginx/conf.d/default.conf,readonly \
+  nginx:alpine
+
+tailscale funnel 443 http://127.0.0.1:8081
+```
+
+Using `nginx -c` is possible, but it expects a full top-level
+`nginx.conf`. The config above is a `conf.d` snippet, so mounting it at
+`/etc/nginx/conf.d/default.conf` is the simpler option.
+
+Validate the mounted nginx config with:
+
+```bash
+docker exec ohdieux-nginx nginx -t
+```
+
+In this setup, direct traffic to host port `8080` bypasses nginx and can
+reach `/admin` directly. Traffic arriving through Tailscale Funnel still
+goes through nginx and gets the `/admin` block. If LAN clients should
+not reach `/admin`, restrict access to `8080` with host firewall rules
+or stop publishing that port directly.
 
 
 ## Environment Variables
