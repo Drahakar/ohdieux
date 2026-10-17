@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "docker build dev image",
+			"type": "shell",
+			"command": "docker",
+			"args": ["build", "-f", "Dockerfile.dev", "-t", "ohdieux-dev", "."],
+			"problemMatcher": []
+		},
+		{
+			"label": "sbt compile task",
+			"type": "shell",
+			"command": "docker build -q -f Dockerfile.dev -t ohdieux-dev .; if ($LASTEXITCODE -eq 0) { docker run --rm -v \"${workspaceFolder}:/app\" -v ohdieux-ivy:/root/.ivy2 -v ohdieux-sbt:/root/.sbt -v ohdieux-coursier:/root/.cache/coursier ohdieux-dev sbt --no-colors compile }",
+			"problemMatcher": []
+		},
+		{
+			"label": "sbt test task",
+			"type": "shell",
+			"command": "docker build -q -f Dockerfile.dev -t ohdieux-dev .; if ($LASTEXITCODE -eq 0) { docker run --rm -v \"${workspaceFolder}:/app\" -v ohdieux-ivy:/root/.ivy2 -v ohdieux-sbt:/root/.sbt -v ohdieux-coursier:/root/.cache/coursier ohdieux-dev sbt --no-colors test }",
+			"group": "test",
+			"problemMatcher": []
+		}
+	]
+}
