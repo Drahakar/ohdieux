@@ -13,7 +13,8 @@ scalaVersion := "3.5.1"
 
 libraryDependencies += guice
 libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "7.0.1" % Test
-libraryDependencies += "org.apache.pekko" %% "pekko-actor-testkit-typed" % "1.0.2" % Test
+libraryDependencies += "org.apache.pekko" %% "pekko-testkit" % "1.0.3" % Test
+libraryDependencies += "org.apache.pekko" %% "pekko-actor-testkit-typed" % "1.0.3" % Test
 
 libraryDependencies += "com.softwaremill.sttp.client4" %% "core" % "4.0.0-M6"
 
