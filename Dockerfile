@@ -30,7 +30,7 @@ EXPOSE 9000
 WORKDIR /data
 
 CMD [ "/app/ohdieux/bin/ohdieux", \
-  "-Dpidfile.path=/tmp/ohdieux.pid", \
+  "-Dpidfile.path=/dev/null", \
   "-Dlogger.resource=prod-logback.xml", \
   "-Dbase_data_dir=/data/" \
   ]
