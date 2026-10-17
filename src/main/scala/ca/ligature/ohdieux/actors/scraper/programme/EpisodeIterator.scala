@@ -19,6 +19,7 @@ private class EpisodeIterator(
       (totalItems.toDouble / firstPage.content.contentDetail.pagedConfiguration.pageMaxLength).ceil.toInt
 
   private var currentPageItems = firstPage.content.contentDetail.items
+  private var fetchFailure: Option[String] = None
   if (direction == "reverse") {
     currentPageItems = currentPageItems.reverse
   }
@@ -33,6 +34,8 @@ private class EpisodeIterator(
 
   override def hasNext: Boolean =
     currentPageItems.headOption.nonEmpty
+
+  def failure: Option[String] = fetchFailure
 
   override def next(): ProgrammeContentDetailItem = {
     val nextItem =
@@ -61,11 +64,11 @@ private class EpisodeIterator(
         }
       }
       case FetchResult.ParseFailure(message) => {
-        println(s"ParseFailure ${message}")
+        fetchFailure = Some(message)
         currentPageItems = Nil
       }
       case FetchResult.FetchFailure(message) => {
-        println(s"FetchFailure ${message}")
+        fetchFailure = Some(message)
         currentPageItems = Nil
       }
     }
@@ -89,10 +92,14 @@ object EpisodeIterator {
   private def inferProgrammeOrdering(
       firstPage: RCModels.ProgrammeById
   ): "oldest_to_newest" | "newest_to_oldest" | "unknown" = {
-    var lastDate = firstPage.content.contentDetail.items
+    val firstNonReplay = firstPage.content.contentDetail.items
       .find(e => !e.isBroadcastedReplay)
-      .get
-      .broadcastedFirstTimeAt
+
+    if (firstNonReplay.isEmpty) {
+      return "unknown"
+    }
+
+    var lastDate = firstNonReplay.get.broadcastedFirstTimeAt
     var delta = 0
     for (elem <- firstPage.content.contentDetail.items) do {
       if (!elem.isBroadcastedReplay) {

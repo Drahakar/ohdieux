@@ -21,6 +21,7 @@ import ca.ligature.ohdieux.persistence.ProgrammeConfigStatus
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import ca.ligature.ohdieux.persistence.ProgrammeConfigEntity
+import scala.util.control.NonFatal
 
 class ProgrammeScraperActor(
     apiClient: ApiClient,
@@ -48,9 +49,16 @@ class ProgrammeScraperActor(
       case Message.FetchProgramme(programmeId, incremental) => {
         if (shouldFetchProgramme(programmeId)) {
           try {
-            impl.fetchProgramme(programmeId, incremental)
+            impl.fetchProgramme(programmeId, incremental) match {
+              case Some(message) => trackFetchFailure(programmeId, message)
+              case None          => clearFetchFailure(programmeId)
+            }
           } catch {
-            case e => trackFetchFailure(programmeId, e.getMessage())
+            case NonFatal(error) =>
+              trackFetchFailure(
+                programmeId,
+                Option(error.getMessage()).getOrElse(error.toString)
+              )
           }
         }
       }
@@ -89,9 +97,9 @@ class ProgrammeScraperActor(
       programmeId: Int
   ): Boolean = {
     val config = programmeConfigRepository.getProgrammeConfig(programmeId)
-    val notFailed = config.status != ProgrammeConfigStatus.Failed
+    val notSuspended = config.status != ProgrammeConfigStatus.Suspended
 
-    notFailed
+    notSuspended
   }
 
   private def trackFetchFailure(programmeId: Int, message: String): Unit = {
@@ -103,6 +111,20 @@ class ProgrammeScraperActor(
         ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
       )
     )
+  }
+
+  private def clearFetchFailure(programmeId: Int): Unit = {
+    val config = programmeConfigRepository.getProgrammeConfig(programmeId)
+    if (config.status == ProgrammeConfigStatus.Failed) {
+      programmeConfigRepository.saveProgrammeConfig(
+        ProgrammeConfigEntity(
+          programmeId,
+          ProgrammeConfigStatus.Ok,
+          "",
+          ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
+        )
+      )
+    }
   }
 }
 

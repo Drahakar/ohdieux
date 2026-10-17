@@ -62,10 +62,37 @@
           Rescan Archive
         </button>
         <button
-          hx-post="/admin/programme/@programme.programmeId/status?status=Failed"
+          hx-post="/admin/programme/@programme.programmeId/status?status=Suspended"
           title="Stop refreshing programme"
         >
           Suspend
+        </button>
+      </td>
+    </tr>
+    }
+  </tbody>
+</table>
+
+<h2>Suspended</h2>
+<table>
+  <thead>
+    <th>Programme ID</th>
+    <th>Message</th>
+    <th>Date</th>
+    <th></th>
+  </thead>
+  <tbody>
+    @for(programme <- stats.suspended) {
+    <tr>
+      <td>@programme.programme_id</td>
+      <td style="max-width: 50vw">@programme.message</td>
+      <td>@programme.date</td>
+      <td>
+        <button
+          hx-post="/admin/programme/@programme.programme_id/status?status=Ok"
+          title="Resume refreshing programme"
+        >
+          Resume
         </button>
       </td>
     </tr>

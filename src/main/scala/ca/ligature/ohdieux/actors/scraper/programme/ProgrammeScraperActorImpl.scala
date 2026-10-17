@@ -1,5 +1,6 @@
 package ca.ligature.ohdieux.actors.scraper.programme
 import ca.ligature.ohdieux.ohdio.ApiClient
+import ca.ligature.ohdieux.ohdio.RCModels.FetchResult
 import ca.ligature.ohdieux.ohdio.RCModels.FetchResult.Success
 import ca.ligature.ohdieux.persistence.ProgrammeRepository
 import ca.ligature.ohdieux.persistence.ProgrammeType
@@ -27,7 +28,7 @@ private case class ProgrammeScraperActorImpl(
   def fetchProgramme(
       programmeId: Int,
       incremental: Boolean
-  ): Unit = {
+  ): Option[String] = {
     val savedProgramme = programmeRepository.getById(programmeId)
 
     val programmeType = savedProgramme
@@ -36,7 +37,7 @@ private case class ProgrammeScraperActorImpl(
 
     programmeType match {
       case None =>
-        throw new Exception(s"Could not find programmeType for $programmeId")
+        return Some(s"Could not find programmeType for $programmeId")
       case _ => ()
     }
 
@@ -57,14 +58,18 @@ private case class ProgrammeScraperActorImpl(
           programmeId,
           programme.image_url
         )
-        saveEpisodes(
-          programmeId,
-          episodes,
-          !(forceRefresh || !incremental),
-          1
-        )
+        if (episodes.hasNext) {
+          saveEpisodes(
+            programmeId,
+            episodes,
+            !(forceRefresh || !incremental),
+            1
+          )
+        }
+        episodes.failure
       }
-      case _ => ()
+      case FetchResult.FetchFailure(message) => Some(message)
+      case FetchResult.ParseFailure(message) => Some(message)
     }
   }
 

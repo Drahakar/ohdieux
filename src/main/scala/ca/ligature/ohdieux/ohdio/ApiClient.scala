@@ -6,6 +6,7 @@ import play.api.libs.json._
 import ca.ligature.ohdieux.persistence.ProgrammeType
 import ca.ligature.ohdieux.utils.|>
 import play.api.Logger
+import scala.util.control.NonFatal
 
 case class ApiClient(val baseUrl: String, val userAgent: String) {
   import ApiClient._
@@ -37,17 +38,33 @@ case class ApiClient(val baseUrl: String, val userAgent: String) {
     }
 
     val (queryParams, transform) = queryBuilder.get
-    val response = quickRequest
-      .get(uri"$baseUrl/bff/audio/graphql?$queryParams")
-      .header("User-Agent", userAgent)
-      .header("Content-Type", "application/json")
-      .send()
+    val response =
+      try {
+        quickRequest
+          .get(uri"$baseUrl/bff/audio/graphql?$queryParams")
+          .header("User-Agent", userAgent)
+          .header("Content-Type", "application/json")
+          .send()
+      } catch {
+        case NonFatal(error) =>
+          return FetchFailure(
+            s"Request failed: ${Option(error.getMessage()).getOrElse(error.toString)}"
+          )
+      }
 
     if (!response.code.isSuccess) {
       return FetchFailure(s"Request failed with ${response.code.code}")
     }
 
-    val body = Json.parse(response.body) |> transform
+    val body =
+      try {
+        Json.parse(response.body) |> transform
+      } catch {
+        case NonFatal(error) =>
+          return ParseFailure(
+            s"Could not parse programme response: ${Option(error.getMessage()).getOrElse(error.toString)}"
+          )
+      }
 
     val decoded =
       (body \ "data" \ "programmeById").validate[ProgrammeById]

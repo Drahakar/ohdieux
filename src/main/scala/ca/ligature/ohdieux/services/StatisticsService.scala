@@ -14,7 +14,8 @@ import ca.ligature.ohdieux.persistence.ProgrammeConfigEntity
 
 case class GlobalStatistics(
     programmes: Seq[ProgrammeStatistics],
-    failures: Seq[ProgrammeConfigEntity]
+    failures: Seq[ProgrammeConfigEntity],
+    suspended: Seq[ProgrammeConfigEntity]
 )
 
 case class StatisticsService @Inject() (
@@ -28,7 +29,9 @@ case class StatisticsService @Inject() (
     GlobalStatistics(
       statisticsRepository.getGlobalStatistics(),
       programmeConfigRepository
-        .getAllByStatus(ProgrammeConfigStatus.Failed)
+        .getAllByStatus(ProgrammeConfigStatus.Failed),
+      programmeConfigRepository
+        .getAllByStatus(ProgrammeConfigStatus.Suspended)
     )
   }
 }

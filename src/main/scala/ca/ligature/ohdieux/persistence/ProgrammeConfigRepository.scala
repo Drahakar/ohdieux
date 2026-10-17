@@ -7,7 +7,7 @@ trait ProgrammeConfigRepository {
 }
 
 enum ProgrammeConfigStatus {
-  case Ok, Failed;
+  case Ok, Failed, Suspended;
 }
 
 case class ProgrammeConfigEntity(
